@@ -14,10 +14,11 @@ exports.getMetricsForLast24Hours = async (req, res) => {
       },
       attributes: [
         [Sequelize.fn('DATE_FORMAT', Sequelize.col('created_at'), '%Y-%m-%d %H:00:00'), 'hour'],
+        'statusCode',
         [Sequelize.fn('COUNT', Sequelize.col('status_code')), 'count'],
         [Sequelize.fn('AVG', Sequelize.col('response_time')), 'averageResponseTime']
       ],
-      group: [Sequelize.fn('DATE_FORMAT', Sequelize.col('created_at'), '%Y-%m-%d %H:00:00')],
+      group: ['statusCode', Sequelize.fn('DATE_FORMAT', Sequelize.col('created_at'), '%Y-%m-%d %H:00:00')],
       order: [[Sequelize.fn('DATE_FORMAT', Sequelize.col('created_at'), '%Y-%m-%d %H:00:00'), 'ASC']]
     });
 

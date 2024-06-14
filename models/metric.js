@@ -1,4 +1,4 @@
-const { Model, DataTypes } = require('sequelize');
+const { Model, DataTypes, QueryTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
 class Metric extends Model {}
@@ -12,7 +12,11 @@ Metric.init({
   endpointId: {
     type: DataTypes.INTEGER,
     allowNull: false,
-    field: 'endpoint_id'
+    field: 'endpoint_id',
+    references: {
+      model: 'endpoints',
+      key: 'id'
+    }
   },
   responseTime: {
     type: DataTypes.INTEGER,
@@ -40,8 +44,21 @@ Metric.init({
   sequelize,
   modelName: 'Metric',
   tableName: 'metrics',
-  underscored: true,
-  initialAutoIncrement: 1,
+  underscored: true
 });
+
+Metric.insert = async (params) => {
+  return sequelize.query(
+    'INSERT INTO metrics VALUES (NULL, $endpointId, $responseTime, $statusCode, NOW(), NOW())', {
+        bind: {
+          endpointId: params.endpointId,
+          responseTime: params.responseTime,
+          statusCode: params.statusCode,
+        },
+        type: QueryTypes.INSERT,
+        returning: true,
+    }
+  );
+};
 
 module.exports = Metric;

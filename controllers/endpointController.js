@@ -1,26 +1,35 @@
 const Endpoint = require('../models/endpoint');
 const Metric = require('../models/metric');
 const axios = require('axios');
+const { performance } = require('perf_hooks');
+
+let intervals = {};
 
 const startMonitoring = (endpoint) => {
-  setInterval(async () => {
-    const start = Date.now();
+  if (intervals[endpoint.id]) {
+    clearInterval(intervals[endpoint.id]);
+  }
+
+  intervals[endpoint.id] = setInterval(async () => {
+    const start = performance.now();
     try {
       const response = await axios({
         method: endpoint.method.toLowerCase(),
         url: endpoint.url
       });
-      const end = Date.now();
-      await Metric.create({
+      const end = performance.now();
+      const responseTime = Math.round(end - start);
+      await Metric.insert({
         endpointId: endpoint.id,
-        responseTime: end - start,
+        responseTime,
         statusCode: response.status
       });
     } catch (error) {
-      const end = Date.now();
-      await Metric.create({
+      const end = performance.now();
+      const responseTime = Math.round(end - start);
+      await Metric.insert({
         endpointId: endpoint.id,
-        responseTime: end - start,
+        responseTime,
         statusCode: error.response ? error.response.status : 500
       });
     }
@@ -29,7 +38,7 @@ const startMonitoring = (endpoint) => {
 
 exports.create = (req, res) => {
   const { url, method, interval } = req.body;
-  Endpoint.create({ userId: req.user.id, url, method, interval })
+  Endpoint.insert({ userId: req.user.id, url, method, interval })
     .then(endpoint => {
       startMonitoring(endpoint);
       res.status(201).json(endpoint);
@@ -53,14 +62,26 @@ exports.update = (req, res) => {
   const { id } = req.params;
   const { url, method, interval } = req.body;
   Endpoint.update({ url, method, interval }, { where: { id, userId: req.user.id } })
-    .then(() => res.json({ message: 'Endpoint updated successfully' }))
+    .then(() => {
+      return Endpoint.findByPk(id);
+    })
+    .then(endpoint => {
+      startMonitoring(endpoint); // Update the monitoring interval
+      res.json({ message: 'Endpoint updated successfully' });
+    })
     .catch(err => res.status(400).json({ error: err }));
 };
 
 exports.delete = (req, res) => {
   const { id } = req.params;
   Endpoint.destroy({ where: { id, userId: req.user.id } })
-    .then(() => res.json({ message: 'Endpoint deleted successfully' }))
+    .then(() => {
+      if (intervals[id]) {
+        clearInterval(intervals[id]);
+        delete intervals[id];
+      }
+      res.json({ message: 'Endpoint deleted successfully' });
+    })
     .catch(err => res.status(400).json({ error: err }));
 };
 

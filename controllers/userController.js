@@ -7,7 +7,7 @@ exports.register = (req, res) => {
   const { username, password } = req.body;
   bcrypt.hash(password, 10, (err, hash) => {
     if (err) return res.status(500).json({ error: err });
-    User.create({ username, password: hash })
+    User.insert({ username, password: hash })
       .then(user => res.status(201).json({ message: 'User registered successfully' }))
       .catch(err => res.status(400).json({ error: err }));
   });
@@ -24,9 +24,11 @@ exports.login = (req, res, next) => {
   })(req, res, next);
 };
 
-exports.logout = (req, res) => {
-  req.logout();
-  res.status(200).json({ message: 'Logged out successfully' });
+exports.logout = (req, res, next) => {
+  req.logout(function(err) {
+    if (err) { return next(err); }
+    res.status(200).json({ message: 'Logged out successfully' });
+  });
 };
 
 exports.getCurrentUser = (req, res) => {
